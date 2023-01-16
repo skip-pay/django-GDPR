@@ -9,14 +9,14 @@ def read(fname):
 
 
 setup(
-    name='django-GDPR',
+    name='skip-django-GDPR',
     long_description=read('README.md'),
     long_description_content_type='text/markdown',
     version=get_version(),
     description='Library for GDPR implementation',
     author='Druids',
     author_email='matllubos@gmail.com',
-    url='https://github.com/druids/django-GDPR',
+    url='https://github.com/skip-pay/django-GDPR',
     license='MIT',
     package_dir={'gdpr': 'gdpr'},
     include_package_data=True,
@@ -40,11 +40,11 @@ setup(
     ],
     install_requires=[
         'django>=2.2,<4.0',
-        'django-chamber>=0.6.6',
+        'skip-django-chamber>=0.6.16.3',
         'tqdm>=4.28.1',
         'pyaes>=1.6.1',
         'unidecode',
-        'django-choice-enumfields>=1.1.0',
+        'skip-django-choice-enumfields>=1.1.3.2',
     ],
     zip_safe=False,
 )
