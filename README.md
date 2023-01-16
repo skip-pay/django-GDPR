@@ -10,7 +10,7 @@ For brief overview you can check example app in `tests` directory.
 Install django-gdpr with pip:
 
 ```bash
-pip install django-gdpr
+pip install skip-django-gdpr
 ```
 
 Add gdpr to your `INSTALLED_APPS`:
