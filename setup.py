@@ -39,8 +39,8 @@ setup(
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
     ],
     install_requires=[
-        'django>=2.2,<4.0',
-        'skip-django-chamber>=0.6.16.3',
+        'django>=4.2',
+        'skip-django-chamber @ git+https://github.com/skip-pay/django-chamber@tda/chore/django_bump',
         'tqdm>=4.28.1',
         'pyaes>=1.6.1',
         'unidecode',

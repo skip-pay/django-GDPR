@@ -6,7 +6,7 @@ from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Model
-from django.utils.encoding import force_text
+from django.utils.encoding import force_str
 
 from .utils import str_to_class
 
@@ -34,7 +34,7 @@ class AppLoader(BaseLoader):
             try:
                 import_module(f'{app.name}.{self.module_name}')
             except ImportError as ex:
-                if force_text(ex) != f'No module named \'{app.name}.{self.module_name}\'':
+                if force_str(ex) != f'No module named \'{app.name}.{self.module_name}\'':
                     raise ex
 
 

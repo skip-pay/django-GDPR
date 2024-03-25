@@ -2,8 +2,8 @@ import re
 from datetime import date
 
 from django.core.exceptions import ValidationError
-from django.utils.encoding import force_text
-from django.utils.translation import ugettext_lazy as _
+from django.utils.encoding import force_str
+from django.utils.translation import gettext_lazy as _
 
 
 def get_day_from_personal_id(personal_id):
@@ -47,7 +47,7 @@ class CZBirthNumberValidator:
     BIRTH_NUMBER = re.compile(r'^(?P<birth>\d{6})/?(?P<id>\d{3,4})$')
 
     def __call__(self, value):
-        value = force_text(value)
+        value = force_str(value)
 
         match = re.match(self.BIRTH_NUMBER, value)
         if not match:
@@ -81,7 +81,7 @@ class IDCardNoValidator:
     ID_CARD_NUMBER = re.compile(r'^\d{9}$')
 
     def __call__(self, value):
-        value = force_text(value)
+        value = force_str(value)
 
         match = re.match(self.ID_CARD_NUMBER, value)
         if not match:
@@ -97,7 +97,7 @@ class BankAccountValidator:
         r'^(?P<bank>\d{1,6})/(?P<number>\d{1,10})(-?(?P<prefix>\d{1,6}))?$')
 
     def __call__(self, value):
-        match = re.match(self.BANK_ACCOUNT_NUMBER_REVERSE_PATTERN, force_text(value)[::-1])
+        match = re.match(self.BANK_ACCOUNT_NUMBER_REVERSE_PATTERN, force_str(value)[::-1])
         if match:
             return construct_bank_account_number((match.groupdict()['prefix'] or '')[::-1],
                                                  match.groupdict()['number'][::-1],
