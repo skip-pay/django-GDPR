@@ -40,7 +40,7 @@ setup(
     ],
     install_requires=[
         'django>=4.2',
-        'skip-django-chamber>=0.7.2
+        'skip-django-chamber>=0.7.2',
         'tqdm>=4.28.1',
         'pyaes>=1.6.1',
         'unidecode',
