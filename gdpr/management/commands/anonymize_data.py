@@ -2,7 +2,7 @@ import math
 
 import pyprind
 from django.core.management.base import BaseCommand
-from utils import chunked_iterator, chunked_queryset_iterator
+from utils import chunked_queryset_iterator
 from utils.commands import ProgressBarStream
 
 from gdpr.anonymizers import DeleteModelAnonymizer
@@ -33,7 +33,7 @@ class Command(BaseCommand):
             title='Anonymize model {}'.format(self._get_full_model_name(qs.model)),
             stream=ProgressBarStream(self.stdout)
         )
-        for obj in chunked_iterator(qs, obj_anonymizer.chunk_size):
+        for obj in qs.iterator(chunk_size=obj_anonymizer.chunk_size):
             obj_anonymizer().anonymize_obj(obj)
             bar.update()
 
