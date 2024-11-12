@@ -1,5 +1,5 @@
 """Minimal django settings to run tests."""
-from gdpr.utils import is_reversion_installed
+from gdpr.utils import is_reversion_installed, is_auditlog_installed
 
 DEBUG = True
 SECRET_KEY = 'fake-key'
@@ -18,6 +18,10 @@ INSTALLED_APPS = [
 
 if is_reversion_installed():
     INSTALLED_APPS += ["reversion"]
+
+
+if is_auditlog_installed():
+    INSTALLED_APPS += ["auditlog"]
 
 DATABASES = {
     'default': {

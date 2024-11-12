@@ -1,11 +1,13 @@
-from typing import Any, Iterable, List, Optional, Union, Type
+from typing import Any, Iterable, List, Optional, Union, Type, TYPE_CHECKING
 
-from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Model
 
 from gdpr.encryption import numerize_key
 from gdpr.utils import get_number_guess_len, get_reversion_local_field_dict
 from gdpr.loading import anonymizer_register
+
+if TYPE_CHECKING:
+    from auditlog.models import LogEntry
 
 
 class BaseAnonymizer:
@@ -88,6 +90,20 @@ class FieldAnonymizer(BaseAnonymizer):
             return self._get_deanonymized_value_from_value(
                 obj, get_reversion_local_field_dict(version)[name], encryption_key
             )
+
+    def get_value_from_entry(self, obj: Model, entry: "LogEntry", name: str, encryption_key: str, anonymization: bool = True):
+        def process_value(value: Any, is_anonymized: bool):
+            if value == "None":
+                return "None"
+            return (
+                self._get_anonymized_value_from_value(value, encryption_key)
+                if is_anonymized
+                else self._get_deanonymized_value_from_value(obj, value, encryption_key)
+            )
+
+        from_value = process_value(entry.changes[name][0], anonymization)
+        to_value = process_value(entry.changes[name][1], anonymization)
+        return [from_value, to_value]
 
     def get_anonymized_value_from_obj(self, obj, name: str, encryption_key: str):
         return self.get_value_from_obj(obj, name, encryption_key, anonymization=True)

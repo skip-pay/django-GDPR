@@ -1,7 +1,10 @@
-from typing import Any, List, Type
+from typing import Any, List, Type, TYPE_CHECKING
 
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Model, QuerySet
+
+if TYPE_CHECKING:
+    from auditlog.models import LogEntry
 
 
 def str_to_class(class_string: str) -> Any:
@@ -51,9 +54,14 @@ Enable support for druids reversion fork
 
 def get_reversion_versions(obj: Any) -> QuerySet:
     from reversion.models import Version
-    from django.contrib.contenttypes.models import ContentType
 
     return Version.objects.get_for_object(obj)
+
+
+def get_auditlog_entries(obj: Model) -> QuerySet:
+    from auditlog.models import LogEntry
+
+    return LogEntry.objects.get_for_object(obj)
 
 
 def get_reversion_version_model(version) -> Type[Model]:
@@ -61,6 +69,11 @@ def get_reversion_version_model(version) -> Type[Model]:
     if hasattr(version, '_model'):
         return version._model
     return version.content_type.model_class()
+
+
+def get_auditlog_entry_model(entry: "LogEntry") -> Type[Model] | None:
+    """Get object model of the entry."""
+    return entry.content_type.model_class()
 
 
 def get_reversion_local_field_dict(obj):
@@ -72,6 +85,14 @@ def get_reversion_local_field_dict(obj):
 def is_reversion_installed():
     try:
         import reversion
+        return True
+    except ImportError:
+        return False
+
+
+def is_auditlog_installed():
+    try:
+        import auditlog
         return True
     except ImportError:
         return False
