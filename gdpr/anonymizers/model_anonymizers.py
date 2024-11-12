@@ -8,7 +8,6 @@ from typing import (
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core import serializers
-from django.db import transaction
 from django.db.models import Model, QuerySet
 from django.db.models.fields import Field
 
@@ -16,12 +15,14 @@ from gdpr.anonymizers.base import BaseAnonymizer, FieldAnonymizer, RelationAnony
 from gdpr.fields import Fields
 from gdpr.models import AnonymizedData, LegalReason
 from gdpr.utils import (
-    get_field_or_none, get_reversion_version_model, get_all_parent_objects, get_all_obj_and_parent_versions,
-    get_all_obj_and_parent_versions_queryset_list, get_reversion_local_field_dict
+    get_field_or_none, get_reversion_version_model, get_all_obj_and_parent_versions,
+    get_all_obj_and_parent_versions_queryset_list, get_reversion_local_field_dict,
+    is_auditlog_installed, get_auditlog_entries
 )
 
 if TYPE_CHECKING:
     from gdpr.purposes.default import AbstractPurpose
+    from auditlog.models import LogEntry
 
 FieldList = Union[List, Tuple, KeysView[str]]  # List, tuple or return of dict keys() method.
 FieldMatrix = Union[str, Tuple[Any, ...]]
@@ -60,6 +61,8 @@ class ModelAnonymizerMeta(type):
             anonymizer_register.register(new_obj.Meta.model, new_obj)
             new_obj.Meta.anonymize_reversion = getattr(new_obj.Meta, 'anonymize_reversion', False)
             new_obj.Meta.delete_reversion = getattr(new_obj.Meta, 'delete_reversion', False)
+            new_obj.Meta.anonymize_auditlog = getattr(new_obj.Meta, 'anonymize_auditlog', False)
+            new_obj.Meta.delete_auditlog = getattr(new_obj.Meta, 'delete_auditlog', False)
             new_obj.Meta.reversible_anonymization = getattr(new_obj.Meta, 'reversible_anonymization', True)
 
         return new_obj
@@ -138,10 +141,23 @@ class ModelAnonymizerBase(BaseAnonymizer, metaclass=ModelAnonymizerMeta):
         for version, version_dict in versions_update_data:
             self._perform_version_update(version, version_dict)
 
+    def anonymize_auditlog(self, obj: Model, field_names: list[str], anonymization: bool):
+        for entry in get_auditlog_entries(obj):
+            for name in field_names:
+                if name in entry.changes:
+                    entry.changes[name] = self.get_value_from_entry(
+                        self[name], obj, entry, name, anonymization=anonymization
+                    )
+            entry.save()
+
     def delete_reversion(self, obj, anonymization: bool):
         if anonymization:
             for qs in get_all_obj_and_parent_versions_queryset_list(obj):
                 qs.delete()
+
+    def delete_auditlog(self, obj: Model, anonymization: bool):
+        if anonymization:
+            get_auditlog_entries(obj).delete()
 
     def get_encryption_key(self, obj) -> str:
         if not self.is_reversible(obj):
@@ -183,6 +199,13 @@ class ModelAnonymizerBase(BaseAnonymizer, metaclass=ModelAnonymizerMeta):
             obj, version, name, self._get_encryption_key(obj, name), anonymization=anonymization
         )
 
+    def get_value_from_entry(
+        self, field: FieldAnonymizer, obj: Model, entry: "LogEntry", name: str, anonymization: bool = True
+    ) -> Any:
+        return field.get_value_from_entry(
+            obj, entry, name, self._get_encryption_key(obj, name), anonymization=anonymization
+        )
+
     def update_field_as_anonymized(self, obj: Model, name: str, legal_reason: Optional[LegalReason] = None,
                                    anonymization: bool = True):
         if anonymization:
@@ -196,7 +219,14 @@ class ModelAnonymizerBase(BaseAnonymizer, metaclass=ModelAnonymizerMeta):
                         anonymization: bool = True):
         for field_name, value in updated_data.items():
             setattr(obj, field_name, value)
-        obj.save()
+
+        if is_auditlog_installed():
+            # this mirror reversion implementation, where history for anonymized change is not tracked
+            from auditlog.context import disable_auditlog
+            with disable_auditlog():
+                obj.save()
+        else:
+            obj.save()
         for field_name in updated_data.keys():
             self.update_field_as_anonymized(obj, field_name, legal_reason, anonymization=anonymization)
 
@@ -391,6 +421,10 @@ class ModelAnonymizerBase(BaseAnonymizer, metaclass=ModelAnonymizerMeta):
                 self.delete_reversion(obj, anonymization)
             elif self.Meta.anonymize_reversion:  # type: ignore
                 self.anonymize_reversion(obj, raw_local_fields, anonymization)
+            if self.Meta.delete_auditlog:
+                self.delete_auditlog(obj, anonymization)
+            elif self.Meta.anonymize_auditlog:
+                self.anonymize_auditlog(obj, raw_local_fields, anonymization)
             self.perform_update(obj, update_dict, legal_reason, anonymization=anonymization)
 
         self.update_related_fields(parsed_fields, obj, legal_reason, purpose, anonymization)
@@ -442,6 +476,8 @@ class DeleteModelAnonymizer(ModelAnonymizer):
 
             if self.Meta.delete_reversion:  # type: ignore
                 self.delete_reversion(obj, anonymization)
+            if self.Meta.delete_auditlog:
+                self.delete_auditlog(obj, anonymization)
 
         elif self.DELETE_FIELD_NAME in parsed_fields.local_fields:
             parsed_fields.local_fields = [i for i in parsed_fields.local_fields if i != self.DELETE_FIELD_NAME]

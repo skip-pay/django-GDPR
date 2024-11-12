@@ -14,7 +14,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from gdpr.mixins import AnonymizationModel
-from gdpr.utils import is_reversion_installed
+from gdpr.utils import is_reversion_installed, is_auditlog_installed
 from tests.validators import CZBirthNumberValidator, BankAccountValidator
 
 
@@ -139,3 +139,15 @@ if is_reversion_installed():
     reversion.register(ParentC, follow=('parentb_ptr',))
     reversion.register(ExtraParentD)
     reversion.register(ChildE, follow=('parentc_ptr', 'extraparentd_ptr'))
+
+
+if is_auditlog_installed():
+    from auditlog.registry import auditlog
+
+    auditlog.register(Customer)
+    auditlog.register(Email)
+    auditlog.register(Address)
+    auditlog.register(Account)
+    auditlog.register(Payment)
+    auditlog.register(ContactForm)
+    auditlog.register(Note)

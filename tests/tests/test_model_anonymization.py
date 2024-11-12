@@ -13,8 +13,9 @@ from gdpr.loading import anonymizer_register
 from gdpr.models import LegalReason
 from gdpr.utils import (
     get_all_obj_and_parent_versions, get_all_obj_and_parent_versions_queryset_list, get_all_parent_objects,
-    get_reversion_local_field_dict, get_reversion_versions, is_reversion_installed
+    get_reversion_local_field_dict, get_reversion_versions, is_reversion_installed, is_auditlog_installed,
 )
+from gdpr.utils import get_auditlog_entries
 from tests.anonymizers import ChildEAnonymizer, ContactFormAnonymizer
 from tests.models import (
     Account, Address, Avatar, ChildE, ContactForm, Customer, CustomerRegistration, Email, ExtraParentD, Note, ParentB,
@@ -28,7 +29,7 @@ from .data import (
     CUSTOMER__FACEBOOK_ID, CUSTOMER__FIRST_NAME, CUSTOMER__IP, CUSTOMER__KWARGS, CUSTOMER__LAST_NAME,
     CUSTOMER__PERSONAL_ID, CUSTOMER__PHONE_NUMBER, PAYMENT__VALUE
 )
-from .utils import AnonymizedDataMixin, NotImplementedMixin
+from .utils import AnonymizedDataMixin, NotImplementedMixin, temporary_attribute
 
 
 class TestModelAnonymization(AnonymizedDataMixin, NotImplementedMixin, TestCase):
@@ -269,60 +270,61 @@ class TestModelAnonymization(AnonymizedDataMixin, NotImplementedMixin, TestCase)
         from gdpr.utils import get_reversion_versions
 
         anon = ContactFormAnonymizer()
-        anon.Meta.anonymize_reversion = True
-        anon.Meta.reversible_anonymization = True
+        with (
+            temporary_attribute(anon.Meta, 'reversible_anonymization', True),
+            temporary_attribute(anon.Meta, 'anonymize_reversion', True)
+        ):
+            user = User(username='test_username')
+            user.save()
 
-        user = User(username='test_username')
-        user.save()
+            with reversion.create_revision():
+                form = ContactForm()
+                form.email = CUSTOMER__EMAIL
+                form.full_name = CUSTOMER__LAST_NAME
+                form.save()
 
-        with reversion.create_revision():
-            form = ContactForm()
-            form.email = CUSTOMER__EMAIL
-            form.full_name = CUSTOMER__LAST_NAME
-            form.save()
+                reversion.set_user(user)
 
-            reversion.set_user(user)
+            with reversion.create_revision():
+                form.email = CUSTOMER__EMAIL2
+                form.save()
 
-        with reversion.create_revision():
-            form.email = CUSTOMER__EMAIL2
-            form.save()
+                reversion.set_user(user)
 
-            reversion.set_user(user)
+            with reversion.create_revision():
+                form.email = CUSTOMER__EMAIL3
+                form.save()
 
-        with reversion.create_revision():
-            form.email = CUSTOMER__EMAIL3
-            form.save()
+                reversion.set_user(user)
 
-            reversion.set_user(user)
+            versions: List[Version] = get_reversion_versions(form).order_by('id')
 
-        versions: List[Version] = get_reversion_versions(form).order_by('id')
+            assert_equal(versions[0].field_dict['email'], CUSTOMER__EMAIL)
+            assert_equal(versions[1].field_dict['email'], CUSTOMER__EMAIL2)
+            assert_equal(versions[2].field_dict['email'], CUSTOMER__EMAIL3)
 
-        assert_equal(versions[0].field_dict['email'], CUSTOMER__EMAIL)
-        assert_equal(versions[1].field_dict['email'], CUSTOMER__EMAIL2)
-        assert_equal(versions[2].field_dict['email'], CUSTOMER__EMAIL3)
+            anon.anonymize_obj(form, base_encryption_key=self.base_encryption_key)
 
-        anon.anonymize_obj(form, base_encryption_key=self.base_encryption_key)
+            anon_versions: List[Version] = get_reversion_versions(form).order_by('id')
+            anon_form = ContactForm.objects.get(pk=form.pk)
 
-        anon_versions: List[Version] = get_reversion_versions(form).order_by('id')
-        anon_form = ContactForm.objects.get(pk=form.pk)
+            assert_not_equal(anon_versions[0].field_dict['email'], CUSTOMER__EMAIL)
+            assert_not_equal(anon_versions[1].field_dict['email'], CUSTOMER__EMAIL2)
+            assert_not_equal(anon_versions[2].field_dict['email'], CUSTOMER__EMAIL3)
+            assert_not_equal(anon_form.email, CUSTOMER__EMAIL3)
 
-        assert_not_equal(anon_versions[0].field_dict['email'], CUSTOMER__EMAIL)
-        assert_not_equal(anon_versions[1].field_dict['email'], CUSTOMER__EMAIL2)
-        assert_not_equal(anon_versions[2].field_dict['email'], CUSTOMER__EMAIL3)
-        assert_not_equal(anon_form.email, CUSTOMER__EMAIL3)
+            anon.deanonymize_obj(anon_form, base_encryption_key=self.base_encryption_key)
 
-        anon.deanonymize_obj(anon_form, base_encryption_key=self.base_encryption_key)
+            deanon_versions: List[Version] = get_reversion_versions(form).order_by('id')
+            deanon_form = ContactForm.objects.get(pk=form.pk)
 
-        deanon_versions: List[Version] = get_reversion_versions(form).order_by('id')
-        deanon_form = ContactForm.objects.get(pk=form.pk)
-
-        assert_equal(deanon_versions[0].field_dict['email'], CUSTOMER__EMAIL)
-        assert_equal(deanon_versions[1].field_dict['email'], CUSTOMER__EMAIL2)
-        assert_equal(deanon_versions[2].field_dict['email'], CUSTOMER__EMAIL3)
-        assert_equal(deanon_form.email, CUSTOMER__EMAIL3)
-        assert_dict_equal(versions[0].field_dict, deanon_versions[0].field_dict)
-        assert_dict_equal(versions[1].field_dict, deanon_versions[1].field_dict)
-        assert_dict_equal(versions[2].field_dict, deanon_versions[2].field_dict)
+            assert_equal(deanon_versions[0].field_dict['email'], CUSTOMER__EMAIL)
+            assert_equal(deanon_versions[1].field_dict['email'], CUSTOMER__EMAIL2)
+            assert_equal(deanon_versions[2].field_dict['email'], CUSTOMER__EMAIL3)
+            assert_equal(deanon_form.email, CUSTOMER__EMAIL3)
+            assert_dict_equal(versions[0].field_dict, deanon_versions[0].field_dict)
+            assert_dict_equal(versions[1].field_dict, deanon_versions[1].field_dict)
+            assert_dict_equal(versions[2].field_dict, deanon_versions[2].field_dict)
 
     @skipIf(not is_reversion_installed(), 'Django-reversion is not installed.')
     def test_reversion_delete(self):
@@ -331,41 +333,40 @@ class TestModelAnonymization(AnonymizedDataMixin, NotImplementedMixin, TestCase)
         from gdpr.utils import get_reversion_versions
 
         anon = ContactFormAnonymizer()
-        anon.Meta.delete_reversion = True
+        with temporary_attribute(anon.Meta, 'delete_reversion', True):
+            user = User(username='test_username')
+            user.save()
 
-        user = User(username='test_username')
-        user.save()
+            with reversion.create_revision():
+                form = ContactForm()
+                form.email = CUSTOMER__EMAIL
+                form.full_name = CUSTOMER__LAST_NAME
+                form.save()
 
-        with reversion.create_revision():
-            form = ContactForm()
-            form.email = CUSTOMER__EMAIL
-            form.full_name = CUSTOMER__LAST_NAME
-            form.save()
+                reversion.set_user(user)
 
-            reversion.set_user(user)
+            with reversion.create_revision():
+                form.email = CUSTOMER__EMAIL2
+                form.save()
 
-        with reversion.create_revision():
-            form.email = CUSTOMER__EMAIL2
-            form.save()
+                reversion.set_user(user)
 
-            reversion.set_user(user)
+            with reversion.create_revision():
+                form.email = CUSTOMER__EMAIL3
+                form.save()
 
-        with reversion.create_revision():
-            form.email = CUSTOMER__EMAIL3
-            form.save()
+                reversion.set_user(user)
 
-            reversion.set_user(user)
+            versions: List[Version] = get_reversion_versions(form).order_by('id')
 
-        versions: List[Version] = get_reversion_versions(form).order_by('id')
+            assert_equal(versions[0].field_dict['email'], CUSTOMER__EMAIL)
+            assert_equal(versions[1].field_dict['email'], CUSTOMER__EMAIL2)
+            assert_equal(versions[2].field_dict['email'], CUSTOMER__EMAIL3)
 
-        assert_equal(versions[0].field_dict['email'], CUSTOMER__EMAIL)
-        assert_equal(versions[1].field_dict['email'], CUSTOMER__EMAIL2)
-        assert_equal(versions[2].field_dict['email'], CUSTOMER__EMAIL3)
+            anon.anonymize_obj(form, base_encryption_key=self.base_encryption_key)
 
-        anon.anonymize_obj(form, base_encryption_key=self.base_encryption_key)
-
-        anon_versions: List[Version] = get_reversion_versions(form).order_by('id')
-        assert_equal(len(anon_versions), 0)
+            anon_versions: List[Version] = get_reversion_versions(form).order_by('id')
+            assert_equal(len(anon_versions), 0)
 
     def test_get_all_parent_objects(self):
         e = ChildE.objects.create(
@@ -521,6 +522,97 @@ class TestModelAnonymization(AnonymizedDataMixin, NotImplementedMixin, TestCase)
 
         assert_equal(get_reversion_local_field_dict(deanon_versions_e[0])['last_name'], 'Dolor')
         assert_equal(get_reversion_local_field_dict(deanon_versions_e[1])['last_name'], 'DOLOR')
+
+    @skipIf(not is_auditlog_installed(), 'Django-auditlog is not installed.')
+    def test_auditlog_anonymization(self):
+        from auditlog.context import set_actor
+        from auditlog.models import LogEntry
+
+        anon = ContactFormAnonymizer()
+        with (
+            temporary_attribute(anon.Meta, 'reversible_anonymization', True),
+            temporary_attribute(anon.Meta, 'anonymize_auditlog', True)
+        ):
+            user = User(username='test_username')
+            user.save()
+
+            with set_actor(user):
+                form = ContactForm()
+                form.email = CUSTOMER__EMAIL
+                form.full_name = CUSTOMER__LAST_NAME
+                form.save()
+
+            with set_actor(user):
+                form.email = CUSTOMER__EMAIL2
+                form.save()
+
+            with set_actor(user):
+                form.email = CUSTOMER__EMAIL3
+                form.save()
+
+            entries: List[LogEntry] = get_auditlog_entries(form).order_by('id')
+
+            assert_equal(entries[0].changes['email'], ['None', CUSTOMER__EMAIL])
+            assert_equal(entries[1].changes['email'], [CUSTOMER__EMAIL, CUSTOMER__EMAIL2])
+            assert_equal(entries[2].changes['email'], [CUSTOMER__EMAIL2, CUSTOMER__EMAIL3])
+
+            anon.anonymize_obj(form, base_encryption_key=self.base_encryption_key)
+
+            anon_entries: List[LogEntry] = get_auditlog_entries(form).order_by('id')
+            anon_form = ContactForm.objects.get(pk=form.pk)
+
+            assert_not_equal(anon_entries[0].changes['email'], CUSTOMER__EMAIL)
+            assert_not_equal(anon_entries[1].changes['email'], CUSTOMER__EMAIL2)
+            assert_not_equal(anon_entries[2].changes['email'], CUSTOMER__EMAIL3)
+            assert_not_equal(anon_form.email, CUSTOMER__EMAIL3)
+
+            anon.deanonymize_obj(anon_form, base_encryption_key=self.base_encryption_key)
+
+            deanon_entries: List[LogEntry] = get_auditlog_entries(form).order_by('id')
+            deanon_form = ContactForm.objects.get(pk=form.pk)
+
+            assert_equal(deanon_entries[0].changes['email'], ['None', CUSTOMER__EMAIL])
+            assert_equal(deanon_entries[1].changes['email'], [CUSTOMER__EMAIL, CUSTOMER__EMAIL2])
+            assert_equal(deanon_entries[2].changes['email'], [CUSTOMER__EMAIL2, CUSTOMER__EMAIL3])
+            assert_equal(deanon_form.email, CUSTOMER__EMAIL3)
+            assert_dict_equal(entries[0].changes, deanon_entries[0].changes)
+            assert_dict_equal(entries[1].changes, deanon_entries[1].changes)
+            assert_dict_equal(entries[2].changes, deanon_entries[2].changes)
+
+    @skipIf(not is_auditlog_installed(), 'Django-auditlog is not installed.')
+    def test_auditlog_delete(self):
+        from auditlog.context import set_actor
+        from auditlog.models import LogEntry
+
+        anon = ContactFormAnonymizer()
+        with temporary_attribute(anon.Meta, 'delete_auditlog', True):
+            user = User(username='test_username')
+            user.save()
+
+            with set_actor(user):
+                form = ContactForm()
+                form.email = CUSTOMER__EMAIL
+                form.full_name = CUSTOMER__LAST_NAME
+                form.save()
+
+            with set_actor(user):
+                form.email = CUSTOMER__EMAIL2
+                form.save()
+
+            with set_actor(user):
+                form.email = CUSTOMER__EMAIL3
+                form.save()
+
+            entries: List[LogEntry] = get_auditlog_entries(form).order_by('id')
+
+            assert_equal(entries[0].changes['email'], ['None', CUSTOMER__EMAIL])
+            assert_equal(entries[1].changes['email'], [CUSTOMER__EMAIL, CUSTOMER__EMAIL2])
+            assert_equal(entries[2].changes['email'], [CUSTOMER__EMAIL2, CUSTOMER__EMAIL3])
+
+            anon.anonymize_obj(form, base_encryption_key=self.base_encryption_key)
+
+            anon_entries: List[LogEntry] = get_auditlog_entries(form).order_by('id')
+            assert_equal(len(anon_entries), 0)
 
 
 class TestFileFieldAnonymizer(TestCase):

@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from typing import Callable
 
 from django.contrib.contenttypes.models import ContentType
@@ -31,3 +32,16 @@ class AnonymizedDataMixin(TestCase):
         content_type = ContentType.objects.get_for_model(obj.__class__)
         assert_false(
             AnonymizedData.objects.filter(content_type=content_type, object_id=str(obj.pk), field=field).exists())
+
+
+@contextmanager
+def temporary_attribute(obj, attribute_name, temporary_value):
+    """
+    Overcomes problem with setting static attributes on classes
+    """
+    original_value = getattr(obj, attribute_name)
+    setattr(obj, attribute_name, temporary_value)
+    try:
+        yield
+    finally:
+        setattr(obj, attribute_name, original_value)
