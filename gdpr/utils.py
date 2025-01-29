@@ -47,47 +47,15 @@ def get_field_or_none(model: Type[Model], field_name: str):
         return None
 
 
-"""
-Enable support for druids reversion fork
-"""
-
-
-def get_reversion_versions(obj: Any) -> QuerySet:
-    from reversion.models import Version
-
-    return Version.objects.get_for_object(obj)
-
-
 def get_auditlog_entries(obj: Model) -> QuerySet:
     from auditlog.models import LogEntry
 
     return LogEntry.objects.get_for_object(obj)
 
 
-def get_reversion_version_model(version) -> Type[Model]:
-    """Get object model of the version."""
-    if hasattr(version, '_model'):
-        return version._model
-    return version.content_type.model_class()
-
-
 def get_auditlog_entry_model(entry: "LogEntry") -> Type[Model] | None:
     """Get object model of the entry."""
     return entry.content_type.model_class()
-
-
-def get_reversion_local_field_dict(obj):
-    if hasattr(obj, '_local_field_dict'):
-        return obj._local_field_dict
-    return obj.flat_field_dict
-
-
-def is_reversion_installed():
-    try:
-        import reversion
-        return True
-    except ImportError:
-        return False
 
 
 def is_auditlog_installed():
@@ -114,15 +82,3 @@ def get_all_parent_objects(obj: Model) -> List[Model]:
         parent_objects.append(parent_obj)
 
     return [i for i in parent_objects if i is not None]
-
-
-def get_all_obj_and_parent_versions_queryset_list(obj: Model) -> List[QuerySet]:
-    """Return list of object and its parent version querysets"""
-    from gdpr.utils import get_reversion_versions
-
-    return [get_reversion_versions(i) for i in get_all_parent_objects(obj)] + [get_reversion_versions(obj)]
-
-
-def get_all_obj_and_parent_versions(obj: Model) -> List[Model]:
-    """Return list of all object and its parent versions"""
-    return [item for sublist in get_all_obj_and_parent_versions_queryset_list(obj) for item in sublist]
