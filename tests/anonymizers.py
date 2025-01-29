@@ -100,4 +100,3 @@ class ChildEAnonymizer(anonymizers.ModelAnonymizer):
 
     class Meta:
         model = ChildE
-        anonymize_reversion = True

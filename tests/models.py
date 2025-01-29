@@ -14,7 +14,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from gdpr.mixins import AnonymizationModel
-from gdpr.utils import is_reversion_installed, is_auditlog_installed
+from gdpr.utils import is_auditlog_installed
 from tests.validators import CZBirthNumberValidator, BankAccountValidator
 
 
@@ -122,23 +122,6 @@ class ExtraParentD(AnonymizationModel):
 
 class ChildE(ParentC, ExtraParentD):
     last_name = models.CharField(max_length=250)
-
-
-if is_reversion_installed():
-    from reversion import revisions as reversion
-
-    reversion.register(Customer)
-    reversion.register(Email)
-    reversion.register(Address)
-    reversion.register(Account)
-    reversion.register(Payment)
-    reversion.register(ContactForm)
-    reversion.register(Note)
-    reversion.register(TopParentA)
-    reversion.register(ParentB, follow=('topparenta_ptr',))
-    reversion.register(ParentC, follow=('parentb_ptr',))
-    reversion.register(ExtraParentD)
-    reversion.register(ChildE, follow=('parentc_ptr', 'extraparentd_ptr'))
 
 
 if is_auditlog_installed():
