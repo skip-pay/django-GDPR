@@ -82,3 +82,25 @@ def get_all_parent_objects(obj: Model) -> List[Model]:
         parent_objects.append(parent_obj)
 
     return [i for i in parent_objects if i is not None]
+
+def chunked_queryset_iterator(queryset, chunk_size=10000, delete_qs=False):
+    """
+    Helper that chunks queryset to the smaler chunks to save memory.
+    @param queryset: queryset that will be loaded in chunks
+    @param chunk_size: maximum size of a chunk
+    @param delete_qs: if purpose is remove imput queryset is used faster method for generating chunks
+    @return: generator that generates smaler queryset from the input queryset
+    """
+    if delete_qs:
+        while queryset.exists():
+            yield queryset[:chunk_size]
+    else:
+        queryset = queryset.order_by("pk")
+        last_pk = None
+        while queryset.exists():
+            batch_queryset = queryset.filter()
+            if last_pk:
+                batch_queryset = batch_queryset.filter(pk__gt=last_pk)
+            batch_queryset = queryset.filter(pk__in=batch_queryset[:chunk_size].values("pk"))
+            last_pk = batch_queryset[batch_queryset.count() - 1].pk
+            yield batch_queryset
