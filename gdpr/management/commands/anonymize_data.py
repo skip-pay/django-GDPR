@@ -2,11 +2,11 @@ import math
 
 import pyprind
 from django.core.management.base import BaseCommand
-from utils import chunked_queryset_iterator
-from utils.commands import ProgressBarStream
+from chamber.commands import ProgressBarStream
 
 from gdpr.anonymizers import DeleteModelAnonymizer
 from gdpr.loading import anonymizer_register
+from gdpr.utils import chunked_queryset_iterator
 
 
 class Command(BaseCommand):
