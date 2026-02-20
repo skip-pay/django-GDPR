@@ -345,7 +345,7 @@ class CzechAccountNumberFieldAnonymizer(NumericFieldAnonymizer):
         account = CzechAccountNumber.parse(value)
 
         if self.use_smart_method and account.check_account_format():
-            return str(account.brute_force_next(self.get_numeric_encryption_key(encryption_key)))
+            return str(account.brute_force_next(self.get_numeric_encryption_key(encryption_key, allow_zero=False)))
 
         account.num = int(encrypt_text(encryption_key, str(account.num), NUMBERS))
 
@@ -355,7 +355,7 @@ class CzechAccountNumberFieldAnonymizer(NumericFieldAnonymizer):
         account = CzechAccountNumber.parse(value)
 
         if self.use_smart_method and account.check_account_format():
-            return str(account.brute_force_prev(self.get_numeric_encryption_key(encryption_key)))
+            return str(account.brute_force_prev(self.get_numeric_encryption_key(encryption_key, allow_zero=False)))
 
         account.num = int(decrypt_text(encryption_key, str(account.num), NUMBERS))
 
@@ -369,13 +369,13 @@ class CzechIBANSmartFieldAnonymizer(NumericFieldAnonymizer):
         iban = CzechIBAN.parse(value)
         if not iban.check_iban_format():
             raise ValidationError(f'IBAN \'{value}\' does not appear to be valid czech IBAN.')
-        return str(iban.brute_force_next(self.get_numeric_encryption_key(encryption_key)))
+        return str(iban.brute_force_next(self.get_numeric_encryption_key(encryption_key, allow_zero=False)))
 
     def get_decrypted_value(self, value: Any, encryption_key: str):
         iban = CzechIBAN.parse(value)
         if not iban.check_iban_format():
             raise ValidationError(f'IBAN \'{value}\' does not appear to be valid czech IBAN.')
-        return str(iban.brute_force_prev(self.get_numeric_encryption_key(encryption_key)))
+        return str(iban.brute_force_prev(self.get_numeric_encryption_key(encryption_key, allow_zero=False)))
 
 
 class CzechPhoneNumberFieldAnonymizer(FieldAnonymizer):

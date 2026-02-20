@@ -12,8 +12,8 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [3.11]
-        django-version: [Django~=4.2]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        django-version: ["django~=4.2", "django~=5.1", "django~=5.2"]
 
     steps:
     - uses: actions/checkout@v2
@@ -24,8 +24,8 @@ jobs:
     - name: Install Dependencies
       run: |
         pip install ${{ matrix.django-version }}
-        python setup.py install
         pip install -r test_requirements.txt
+        pip install .
     - name: Run Tests
       run: |
         python runtests.py
