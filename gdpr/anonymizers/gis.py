@@ -1,4 +1,5 @@
 """Since django 1.11 djnago-GIS requires GDAL."""
+
 import logging
 from typing import Optional
 
@@ -50,18 +51,26 @@ class ExperimentalGISPointFieldAnonymizer(NumericFieldAnonymizer):
         from django.contrib.gis.geos import Point
 
         new_val: Point = Point(value.tuple)
-        new_val.x = (new_val.x + self.get_numeric_encryption_key(encryption_key, int(new_val.x))) % self.max_x_range
-        new_val.y = (new_val.y + self.get_numeric_encryption_key(encryption_key, int(new_val.y))) % self.max_y_range
+        new_val.x = (
+            new_val.x + self.get_numeric_encryption_key(encryption_key, int(new_val.x), allow_zero=False)
+        ) % self.max_x_range
+        new_val.y = (
+            new_val.y + self.get_numeric_encryption_key(encryption_key, int(new_val.y), allow_zero=False)
+        ) % self.max_y_range
 
         return new_val
 
     def get_decrypted_value(self, value, encryption_key: str):
         if not is_gis_installed():
-            raise ImproperlyConfigured('Unable to load django GIS.')
+            raise ImproperlyConfigured("Unable to load django GIS.")
         from django.contrib.gis.geos import Point
 
         new_val: Point = Point(value.tuple)
-        new_val.x = (new_val.x - self.get_numeric_encryption_key(encryption_key, int(new_val.x))) % self.max_x_range
-        new_val.y = (new_val.y - self.get_numeric_encryption_key(encryption_key, int(new_val.y))) % self.max_y_range
+        new_val.x = (
+            new_val.x - self.get_numeric_encryption_key(encryption_key, int(new_val.x), allow_zero=False)
+        ) % self.max_x_range
+        new_val.y = (
+            new_val.y - self.get_numeric_encryption_key(encryption_key, int(new_val.y), allow_zero=False)
+        ) % self.max_y_range
 
         return new_val

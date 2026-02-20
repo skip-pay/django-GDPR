@@ -13,6 +13,7 @@ class TestCzechAccountNumberField(TestCase):
     def setUpTestData(cls):
         cls.field = CzechAccountNumberFieldAnonymizer()
         cls.encryption_key = 'LoremIpsumDolorSitAmet'
+        cls.zero_remainder_encryption_key = 'Vu'
 
     def test_account_number_simple_field(self):
         account_number = '2501277007/2010'
@@ -32,6 +33,17 @@ class TestCzechAccountNumberField(TestCase):
         assert_not_equal(out, account_number)
 
         out_decrypt = field.get_decrypted_value(out, self.encryption_key)
+
+        assert_equal(out_decrypt, account_number)
+
+    def test_account_number_simple_field_smart_method_using_encryption_key_having_zero_modulo_remainder(self):
+        field = CzechAccountNumberFieldAnonymizer(use_smart_method=True)
+        account_number = '2501277007/2010'
+        out = field.get_encrypted_value(account_number, self.zero_remainder_encryption_key)
+
+        assert_not_equal(out, account_number)
+
+        out_decrypt = field.get_decrypted_value(out, self.zero_remainder_encryption_key)
 
         assert_equal(out_decrypt, account_number)
 
@@ -79,6 +91,7 @@ class TestCzechIBANSmartFieldAnonymizer(TestCase):
     def setUpTestData(cls):
         cls.field = CzechIBANSmartFieldAnonymizer()
         cls.encryption_key = 'LoremIpsumDolorSitAmet'
+        cls.zero_remainder_encryption_key = 'Vu'
         cls.text_iban = 'CZ65 0800 0000 1920 0014 5399'
         cls.no_space_text_iban = 'CZ6508000000192000145399'
         cls.invalid_text_iban = 'CZ00 0800 0000 1920 0014 5399'
@@ -89,6 +102,13 @@ class TestCzechIBANSmartFieldAnonymizer(TestCase):
         assert_not_equal(out, self.text_iban)
 
         out_decrypted = self.field.get_decrypted_value(out, self.encryption_key)
+        assert_equal(out_decrypted, self.text_iban)
+
+    def test_czech_iban_field_using_encryption_key_having_zero_modulo_remainder(self):
+        out = self.field.get_encrypted_value(self.text_iban, self.zero_remainder_encryption_key)
+        assert_not_equal(out, self.text_iban)
+
+        out_decrypted = self.field.get_decrypted_value(out, self.zero_remainder_encryption_key)
         assert_equal(out_decrypted, self.text_iban)
 
     def test_czech_iban_field_no_space(self):

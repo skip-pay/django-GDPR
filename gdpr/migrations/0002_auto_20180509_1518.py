@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 import datetime
 
 from django.db import migrations, models
-from django.utils.timezone import utc
 
 
 class Migration(migrations.Migration):
@@ -22,8 +21,10 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='legalreason',
             name='issued_at',
-            field=models.DateTimeField(default=datetime.datetime(2018, 5, 9, 13, 18, 7, 317147, tzinfo=utc),
-                                       verbose_name='issued at'),
+            field=models.DateTimeField(
+                default=datetime.datetime(2018, 5, 9, 13, 18, 7, 317147, tzinfo=datetime.timezone.utc),
+                verbose_name='issued at'
+            ),
             preserve_default=False,
         ),
         migrations.AlterField(

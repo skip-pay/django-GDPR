@@ -2,7 +2,8 @@ flake8==3.8.4
 mypy==0.991
 python-dateutil==2.7.5
 django-extensions
-freezegun==0.3.12
+freezegun
 Faker==1.0.1
-skip-django-germanium==2.4.0
+skip-django-germanium==2.6.0
 django-auditlog
+setuptools
