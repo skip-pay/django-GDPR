@@ -1,4 +1,4 @@
-VERSION = (0, 6, 2)
+VERSION = (1, 0, 0)
 
 
 def get_version():
