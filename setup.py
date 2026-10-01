@@ -27,6 +27,8 @@ setup(
         'Framework :: Django :: 4.2',
         'Framework :: Django :: 5.1',
         'Framework :: Django :: 5.2',
+        'Framework :: Django :: 6.0',
+        'Framework :: Django :: 6.1',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
@@ -41,7 +43,7 @@ setup(
     ],
     python_requires='>=3.10',
     install_requires=[
-        'django>=4.2,<6',
+        'django>=4.2,<6.2',
         'skip-django-chamber>=0.7.2',
         'tqdm>=4.28.1',
         'pyaes>=1.6.1',

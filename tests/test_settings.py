@@ -61,6 +61,8 @@ MIDDLEWARE = MIDDLEWARE_CLASSES = (
 
 USE_TZ = True
 
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+
 # Old legacy settings
 # @TODO: Replace
 ANONYMIZATION_NAME_KEY = "SOMEFAKEKEY"
